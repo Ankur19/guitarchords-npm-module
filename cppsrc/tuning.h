@@ -2,7 +2,8 @@
 #define TUNING_H
 
 #include "napi.h"
-#include <string.h>
+#include <string>
+#include <map>
 
 class Tuning : public Napi::ObjectWrap<Tuning>
 {

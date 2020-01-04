@@ -1,5 +1,4 @@
 #include "tuning.h"
-#include <napi.h>
 
 Tuning::Tuning(const Napi::CallbackInfo &info)
     : Napi::ObjectWrap<Tuning>(info)
