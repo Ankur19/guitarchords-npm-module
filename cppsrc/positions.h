@@ -19,9 +19,11 @@ public:
     static Napi::Value getPositions(const Napi::CallbackInfo &info);
 
 private:
-    static void getNoteGrid(std::string *allNotes, unsigned int numStrings, std::string *tuning);
-    static void getScaleNotes(std::string scaleType, std::string note, std::string *noteArray);
-    static void getChordShapes(std::string *allNotes, std::string chordType, std::string chord, unsigned int numStrings, unsigned int startFret, unsigned int width);
+    static void getNoteGrid(std::vector<std::string> *allNotes, unsigned int numStrings, std::string *tuning);
+    static void getScaleNotes(std::string scaleType, std::string note, std::vector<std::string> *noteArray);
+    static void getChordShapes(std::vector<std::string> *allNotes, std::string chordType, std::string chord, unsigned int numStrings, unsigned int startFret, unsigned int width, std::vector<std::string> *arrayToFill);
     static int isValidPosition(std::string currentNote, std::vector<std::string> chordNotes);
+    static void recursiveNoteSearch(unsigned int currentString, unsigned int *numStrings, std::map<int, int *> *validNotesMap, std::vector<std::string> *chordNotes, std::vector<unsigned int> pendingStrings, std::vector<std::string> pendingNotes, std::map<int, int> validNotePositions, unsigned int *width, std::vector<std::string> *arrayToFill);
+    static void addValidChord(unsigned int *numStrings, std::map<int, int> validNotePositionsNew, std::vector<std::string> *chordNotes, std::vector<std::string> *arrayToFill);
 };
 #endif

@@ -1,5 +1,4 @@
 #include "positions.h"
-
 /*input:
  * <Tuning> object
  * Chord Name. One of A to G#
@@ -12,6 +11,8 @@ Napi::Value Positions::getPositions(const Napi::CallbackInfo &info)
     Tuning *currentTune;
     std::string rootNote;
     std::string type;
+    unsigned int startFret;
+    unsigned int width;
     //input validations
     if (info[0].IsObject())
     {
@@ -81,21 +82,32 @@ Napi::Value Positions::getPositions(const Napi::CallbackInfo &info)
             .ThrowAsJavaScriptException();
         return env.Null();
     }
+    //validations pending
+    startFret = Napi::Number(env, info[3]).Int32Value();
+    width = Napi::Number(env, info[4]).Int32Value();
+    // validations pending end
 
     const unsigned int numStrings = currentTune->getNumStrings();
 
-    Napi::Array returnTuning = Napi::Array::New(env, numStrings);
     std::string *tuning = currentTune->Val();
-    for (unsigned int i = 0; i < numStrings; i++)
-    {
-        returnTuning[i] = Napi::Value::From(env, tuning[i]);
-    }
     //contains allNotes in the current guitar(<6 notes in each fret> * <12 frets>)
-    std::string *allNotes = new std::string[numStrings * 12];
-    getNoteGrid(allNotes, numStrings, tuning);
+    std::vector<std::string> allNotes;
+    getNoteGrid(&allNotes, numStrings, tuning);
     //once we have the notes. Find the chord positions
-    getChordShapes(allNotes, type, rootNote, numStrings, 1, 3);
-    return returnTuning;
+    std::vector<std::string> *arrayToFill = new std::vector<std::string>();
+    getChordShapes(&allNotes, type, rootNote, numStrings, startFret, width, arrayToFill);
+
+    if (arrayToFill->size() == 0)
+    {
+        return env.Null();
+    }
+    Napi::Array returnArray = Napi::Array::New(env, arrayToFill->size());
+    for (unsigned int i = 0; i < arrayToFill->size(); i++)
+    {
+        returnArray[i] = Napi::Value::From(env, arrayToFill->at(i));
+    }
+
+    return returnArray;
 };
 
 void Positions::Init(Napi::Env env, Napi::Object exports)
@@ -106,7 +118,7 @@ void Positions::Init(Napi::Env env, Napi::Object exports)
     exports.Set("getPositions", Napi::Function::New(env, getPositions));
 }
 
-void Positions::getNoteGrid(std::string *allNotes, unsigned int numStrings, std::string *tuning)
+void Positions::getNoteGrid(std::vector<std::string> *allNotes, unsigned int numStrings, std::string *tuning)
 {
 
     unsigned int startPositions[numStrings];
@@ -127,12 +139,12 @@ void Positions::getNoteGrid(std::string *allNotes, unsigned int numStrings, std:
     {
         for (unsigned int j = 0; j < numStrings; j++)
         {
-            allNotes[fret * numStrings + j] = frets[startPositions[j] + fret];
+            (*allNotes).push_back(frets[startPositions[j] + fret]);
         }
     }
 }
 
-void Positions::getScaleNotes(std::string scaleType, std::string note, std::string *noteArray)
+void Positions::getScaleNotes(std::string scaleType, std::string note, std::vector<std::string> *noteArray)
 {
     //get the scale. major or minor
     std::string noteLength = scaleMap.at(scaleType);
@@ -146,9 +158,9 @@ void Positions::getScaleNotes(std::string scaleType, std::string note, std::stri
             break;
         }
     }
-    for (unsigned int i = 0; i < noteLength.length(); i++)
+    for (unsigned int i = 0; i < noteLength.size(); i++)
     {
-        noteArray[i] = frets[currentPosition];
+        (*noteArray).push_back(frets[currentPosition]);
         //fullnote add 2, halfnote add 1
         if (noteLength.at(i) == 'W')
         {
@@ -161,29 +173,28 @@ void Positions::getScaleNotes(std::string scaleType, std::string note, std::stri
     }
 }
 
-void Positions::getChordShapes(std::string *allNotes, std::string chordType, std::string chord, unsigned int numStrings, unsigned int startFret, unsigned int width)
+void Positions::getChordShapes(std::vector<std::string> *allNotes, std::string chordType, std::string chord, unsigned int numStrings, unsigned int startFret, unsigned int width, std::vector<std::string> *arrayToFill)
 {
     //noteArray contains all the notes in the scale
-    std::string *noteArray = new std::string[7];
+    std::vector<std::string> *noteArray = new std::vector<std::string>();
     getScaleNotes(chordType, chord, noteArray);
 
-    //chordNotes contains the notes that form the chord
+    //chordNotes contains the notes that form the chord. we have to subtract -1 since positions in the constant start from 1
     std::vector<std::string> chordNotes;
     for (unsigned int i = 0; i < notePositions.at(chordType).size(); i++)
     {
-        chordNotes.push_back(noteArray[notePositions.at(chordType).at(i)]);
+        chordNotes.push_back((*noteArray)[notePositions.at(chordType).at(i) - 1]);
     }
 
-    unsigned int startIndex = startFret * numStrings;
     //make a list of string numbers
     std::vector<int> strings;
-    for (unsigned int i = 1; i <= numStrings; i++)
+    for (unsigned int i = 0; i < numStrings; i++)
         strings.push_back(i);
 
     //make a map of notes in each guitar string. valid notes would indicate the index of the note in chordNotes else
     std::map<int, int *> validNotesMap;
 
-    for (std::vector<int>::size_type i = 0; i != strings.size(); i++)
+    for (unsigned int i = 0; i < strings.size(); i++)
     {
         //width + 1 because there can be open notes
         validNotesMap.insert(std::pair<int, int *>(i, new int[width + 1]));
@@ -191,14 +202,27 @@ void Positions::getChordShapes(std::string *allNotes, std::string chordType, std
         {
             if (j == 0)
             {
-                validNotesMap.at(i)[j] = isValidPosition(allNotes[i], chordNotes);
+                validNotesMap.at(i)[j] = isValidPosition((*allNotes)[i], chordNotes);
             }
             else
             {
-                validNotesMap.at(i)[j] = isValidPosition(allNotes[(startFret + i - 1) * numStrings + j], chordNotes);
+                validNotesMap.at(i)[j] = isValidPosition((*allNotes)[(startFret + j - 1) * numStrings + i], chordNotes);
             }
         }
     }
+
+    //now we have the valid notes map
+    //only thing pending is to find all the combinations of the chordNotes. Playing them will be fun
+
+    std::vector<unsigned int> pendingStrings;
+    for (unsigned int i = 0; i < numStrings; i++)
+    {
+        pendingStrings.push_back(i);
+    }
+    std::vector<std::string> pendingNotes = chordNotes;
+    std::map<int, int> validNotePositions;
+
+    recursiveNoteSearch(pendingStrings[0], &numStrings, &validNotesMap, &chordNotes, pendingStrings, pendingNotes, validNotePositions, &width, arrayToFill);
 }
 int Positions::isValidPosition(std::string currentNote, std::vector<std::string> chordNotes)
 {
@@ -211,4 +235,108 @@ int Positions::isValidPosition(std::string currentNote, std::vector<std::string>
     }
     return -1;
 }
-//void Positions::recursiveNoteSearch(std::string *allNotes, unsigned int startIndex, unsigned int numStrings, unsigned int width, std::vector<std::string> shapeArr, std::string validNotes[])
+void Positions::recursiveNoteSearch(unsigned int currentString, unsigned int *numStrings, std::map<int, int *> *validNotesMap, std::vector<std::string> *chordNotes, std::vector<unsigned int> pendingStrings, std::vector<std::string> pendingNotes, std::map<int, int> validNotePositions, unsigned int *width, std::vector<std::string> *arrayToFill)
+{
+    if (pendingStrings.size() < pendingNotes.size() || pendingStrings.size() == 0)
+    {
+        return;
+    }
+    else
+    {
+        bool found = false;
+        //when strings are pending
+        for (unsigned int i = 0; i <= (*width); i++)
+        {
+            if ((*validNotesMap).at(currentString)[i] > -1 && (*validNotesMap).at(currentString)[i] < (int)(*chordNotes).size())
+            {
+                //if atleast one valid note then donot remove from pendingStrings. else remove
+                found = true;
+                //make new validNotePosition
+                std::map<int, int> *validNotePositionsNew = new std::map<int, int>;
+                for (unsigned int j = 0; j < validNotePositions.size(); j++)
+                {
+                    validNotePositionsNew->insert(std::pair<int, int>(j, validNotePositions.at(j)));
+                };
+                validNotePositionsNew->insert(std::pair<int, int>(currentString, (*validNotesMap).at(currentString)[i]));
+
+                //make new pendingStrings
+                std::vector<unsigned int> *pendingStringsNew = new std::vector<unsigned int>;
+                for (unsigned int j = 0; j < pendingStrings.size(); j++)
+                {
+                    pendingStringsNew->push_back(pendingStrings.at(j));
+                }
+                for (unsigned int j = 0; j < pendingStringsNew->size(); j++)
+                {
+                    if (pendingStringsNew->at(j) == currentString)
+                    {
+                        pendingStringsNew->erase(pendingStringsNew->begin() + j);
+                        break;
+                    }
+                }
+                //make new pendingNotes
+                std::vector<std::string> *pendingNotesNew = new std::vector<std::string>;
+                for (unsigned int j = 0; j < pendingNotes.size(); j++)
+                {
+                    pendingNotesNew->push_back(pendingNotes.at(j));
+                }
+                for (unsigned int j = 0; j < pendingNotesNew->size(); j++)
+                {
+                    if (pendingNotesNew->at(j).compare((*chordNotes)[(*validNotesMap).at(currentString)[i]]) == 0)
+                    {
+                        pendingNotesNew->erase(pendingNotesNew->begin() + j);
+                        break;
+                    }
+                }
+                //this means that note is valid
+                if (pendingNotesNew->size() == 0)
+                {
+                    addValidChord(numStrings, *validNotePositionsNew, chordNotes, arrayToFill);
+                }
+                if (pendingStringsNew->size() > 0)
+                {
+                    recursiveNoteSearch(pendingStringsNew->at(0), numStrings, validNotesMap, chordNotes, *pendingStringsNew, *pendingNotesNew, *validNotePositionsNew, width, arrayToFill);
+                }
+            }
+        }
+        if (!found)
+        {
+            std::vector<unsigned int> *pendingStringsNew = new std::vector<unsigned int>;
+            for (unsigned int j = 0; j < pendingStrings.size(); j++)
+            {
+                pendingStringsNew->push_back(pendingStrings.at(j));
+            }
+            for (unsigned int j = 0; j < pendingStringsNew->size(); j++)
+            {
+                if (pendingStringsNew->at(j) == currentString)
+                {
+                    pendingStringsNew->erase(pendingStringsNew->begin() + j);
+                    break;
+                }
+            }
+            if (pendingStrings.size() > 0)
+            {
+                recursiveNoteSearch(pendingStrings[0], numStrings, validNotesMap, chordNotes, *pendingStringsNew, pendingNotes, validNotePositions, width, arrayToFill);
+            }
+        }
+        pendingStrings.clear();
+        pendingNotes.clear();
+        validNotePositions.clear();
+    }
+}
+void Positions::addValidChord(unsigned int *numStrings, std::map<int, int> validNotePositionsNew, std::vector<std::string> *chordNotes, std::vector<std::string> *arrayToFill)
+{
+    std::string pattern = "";
+    for (unsigned int i = 0; i < (*numStrings); i++)
+    {
+        if (validNotePositionsNew.find(i) == validNotePositionsNew.end())
+        {
+            //not found
+            pattern += "X";
+        }
+        else
+        {
+            pattern += (*chordNotes)[validNotePositionsNew.at(i)];
+        }
+    }
+    (*arrayToFill).push_back(pattern);
+}
