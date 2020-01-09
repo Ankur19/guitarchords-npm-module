@@ -87,7 +87,7 @@ Napi::Value Positions::getPositions(const Napi::CallbackInfo &info)
     width = Napi::Number(env, info[4]).Int32Value();
     // validations pending end
 
-    const unsigned int numStrings = currentTune->getNumStrings();
+    unsigned int numStrings = currentTune->getNumStrings();
 
     std::string *tuning = currentTune->Val();
     //contains allNotes in the current guitar(<6 notes in each fret> * <12 frets>)
@@ -121,7 +121,7 @@ void Positions::Init(Napi::Env env, Napi::Object exports)
 void Positions::getNoteGrid(std::vector<std::string> *allNotes, unsigned int numStrings, std::string *tuning)
 {
 
-    unsigned int startPositions[numStrings];
+    std::vector<unsigned int> startPositions;
 
     for (unsigned int i = 0; i < numStrings; i++)
     {
@@ -129,7 +129,7 @@ void Positions::getNoteGrid(std::vector<std::string> *allNotes, unsigned int num
         {
             if (frets[j].compare(tuning[i]) == 0)
             {
-                startPositions[i] = j;
+                startPositions.push_back(j);
                 break;
             }
         }
@@ -328,15 +328,29 @@ void Positions::addValidChord(unsigned int *numStrings, std::map<int, int> valid
     std::string pattern = "";
     for (unsigned int i = 0; i < (*numStrings); i++)
     {
-        if (validNotePositionsNew.find(i) == validNotePositionsNew.end())
-        {
-            //not found
-            pattern += "X";
+        if (i + 1 == (*numStrings)) {
+            if (validNotePositionsNew.find(i) == validNotePositionsNew.end())
+            {
+                //not found
+                pattern += "X";
+            }
+            else
+            {
+                pattern += (*chordNotes)[validNotePositionsNew.at(i)];
+            }
         }
-        else
-        {
-            pattern += (*chordNotes)[validNotePositionsNew.at(i)];
+        else {
+            if (validNotePositionsNew.find(i) == validNotePositionsNew.end())
+            {
+                //not found
+                pattern += "X-";
+            }
+            else
+            {
+                pattern += (*chordNotes)[validNotePositionsNew.at(i)] + "-";
+            }
         }
+        
     }
     (*arrayToFill).push_back(pattern);
 }

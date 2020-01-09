@@ -8,7 +8,7 @@
 class Tuning : public Napi::ObjectWrap<Tuning>
 {
 public:
-    static void Init(Napi::Env env, Napi::Object exports);
+    static Napi::Object Init(Napi::Env env, Napi::Object exports);
     static Napi::Object NewInstance(Napi::Array arg);
     Tuning(const Napi::CallbackInfo &info);
     std::string *Val() const { return tune_; };

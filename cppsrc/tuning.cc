@@ -44,7 +44,7 @@ Tuning::Tuning(const Napi::CallbackInfo &info)
 
 Napi::FunctionReference Tuning::tuningFuncRef;
 
-void Tuning::Init(Napi::Env env, Napi::Object exports)
+Napi::Object Tuning::Init(Napi::Env env, Napi::Object exports)
 {
     //keeps the object in heap
     Napi::HandleScope scope(env);
@@ -55,6 +55,7 @@ void Tuning::Init(Napi::Env env, Napi::Object exports)
     tuningFuncRef.SuppressDestruct();
 
     exports.Set("Tuning", tuningFunc);
+    return exports;
 }
 
 Napi::Object Tuning::NewInstance(Napi::Array arg)

@@ -2,6 +2,7 @@
   "name": "guitarchords",
   "version": "1.0.0",
   "gypfile": true,
+  "repository": "https://github.com/Ankur19/guitarchords-npm-module",
   "description": "Module to get chord note positions based on tuning",
   "main": "index.js",
   "scripts": {
@@ -14,6 +15,7 @@
     "node-gyp": "^5.0.7"
   },
   "dependencies": {
+    "bindings": "^1.5.0",
     "node-addon-api": "^2.0.0"
   }
 }

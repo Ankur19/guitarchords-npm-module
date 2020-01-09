@@ -19,7 +19,7 @@ public:
     static Napi::Value getPositions(const Napi::CallbackInfo &info);
 
 private:
-    static void getNoteGrid(std::vector<std::string> *allNotes, unsigned int numStrings, std::string *tuning);
+    static void getNoteGrid(std::vector<std::string> *allNotes,unsigned int numStrings, std::string *tuning);
     static void getScaleNotes(std::string scaleType, std::string note, std::vector<std::string> *noteArray);
     static void getChordShapes(std::vector<std::string> *allNotes, std::string chordType, std::string chord, unsigned int numStrings, unsigned int startFret, unsigned int width, std::vector<std::string> *arrayToFill);
     static int isValidPosition(std::string currentNote, std::vector<std::string> chordNotes);
