@@ -96,10 +96,9 @@ Napi::Value Positions::getPositions(const Napi::CallbackInfo &info)
     //once we have the notes. Find the chord positions
     std::vector<std::string> *arrayToFill = new std::vector<std::string>();
     getChordShapes(&allNotes, type, rootNote, numStrings, startFret, width, arrayToFill);
-
     if (arrayToFill->size() == 0)
     {
-        return env.Null();
+        (*arrayToFill).push_back("None");
     }
     Napi::Array returnArray = Napi::Array::New(env, arrayToFill->size());
     for (unsigned int i = 0; i < arrayToFill->size(); i++)
@@ -193,7 +192,6 @@ void Positions::getChordShapes(std::vector<std::string> *allNotes, std::string c
 
     //make a map of notes in each guitar string. valid notes would indicate the index of the note in chordNotes else
     std::map<int, int *> validNotesMap;
-
     for (unsigned int i = 0; i < strings.size(); i++)
     {
         //width + 1 because there can be open notes
@@ -206,11 +204,10 @@ void Positions::getChordShapes(std::vector<std::string> *allNotes, std::string c
             }
             else
             {
-                validNotesMap.at(i)[j] = isValidPosition((*allNotes)[(startFret + j - 1) * numStrings + i], chordNotes);
+                validNotesMap.at(i)[j] = isValidPosition((*allNotes)[((startFret + j - 1) % 12) * numStrings + i], chordNotes);
             }
         }
     }
-
     //now we have the valid notes map
     //only thing pending is to find all the combinations of the chordNotes. Playing them will be fun
 
@@ -252,13 +249,12 @@ void Positions::recursiveNoteSearch(unsigned int currentString, unsigned int *nu
                 //if atleast one valid note then donot remove from pendingStrings. else remove
                 found = true;
                 //make new validNotePosition
-                std::map<int, int> *validNotePositionsNew = new std::map<int, int>;
-                for (unsigned int j = 0; j < validNotePositions.size(); j++)
+                std::map<int, int> validNotePositionsNew = std::map<int, int>();
+                for (auto const &elem : validNotePositions)
                 {
-                    validNotePositionsNew->insert(std::pair<int, int>(j, validNotePositions.at(j)));
-                };
-                validNotePositionsNew->insert(std::pair<int, int>(currentString, (*validNotesMap).at(currentString)[i]));
-
+                    validNotePositionsNew.insert(std::pair<int, int>(elem.first, elem.second));
+                }
+                validNotePositionsNew.insert(std::pair<int, int>(currentString, (*validNotesMap).at(currentString)[i]));
                 //make new pendingStrings
                 std::vector<unsigned int> *pendingStringsNew = new std::vector<unsigned int>;
                 for (unsigned int j = 0; j < pendingStrings.size(); j++)
@@ -290,11 +286,11 @@ void Positions::recursiveNoteSearch(unsigned int currentString, unsigned int *nu
                 //this means that note is valid
                 if (pendingNotesNew->size() == 0)
                 {
-                    addValidChord(numStrings, *validNotePositionsNew, chordNotes, arrayToFill);
+                    addValidChord(numStrings, validNotePositionsNew, chordNotes, arrayToFill);
                 }
                 if (pendingStringsNew->size() > 0)
                 {
-                    recursiveNoteSearch(pendingStringsNew->at(0), numStrings, validNotesMap, chordNotes, *pendingStringsNew, *pendingNotesNew, *validNotePositionsNew, width, arrayToFill);
+                    recursiveNoteSearch(pendingStringsNew->at(0), numStrings, validNotesMap, chordNotes, *pendingStringsNew, *pendingNotesNew, validNotePositionsNew, width, arrayToFill);
                 }
             }
         }
@@ -328,7 +324,8 @@ void Positions::addValidChord(unsigned int *numStrings, std::map<int, int> valid
     std::string pattern = "";
     for (unsigned int i = 0; i < (*numStrings); i++)
     {
-        if (i + 1 == (*numStrings)) {
+        if (i + 1 == (*numStrings))
+        {
             if (validNotePositionsNew.find(i) == validNotePositionsNew.end())
             {
                 //not found
@@ -339,7 +336,8 @@ void Positions::addValidChord(unsigned int *numStrings, std::map<int, int> valid
                 pattern += (*chordNotes)[validNotePositionsNew.at(i)];
             }
         }
-        else {
+        else
+        {
             if (validNotePositionsNew.find(i) == validNotePositionsNew.end())
             {
                 //not found
@@ -350,7 +348,6 @@ void Positions::addValidChord(unsigned int *numStrings, std::map<int, int> valid
                 pattern += (*chordNotes)[validNotePositionsNew.at(i)] + "-";
             }
         }
-        
     }
     (*arrayToFill).push_back(pattern);
 }
